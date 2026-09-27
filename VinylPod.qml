@@ -6,75 +6,32 @@ import qs.Ui
 import qs.Commons
 import "Model.js" as Model
 
-// VinylPod — a floating now-playing panel (kind: "panel", the Quattro kind
-// for a persistent/summoned floating window such as an OSD).
-//
-// Extends the same `Panel` base component Spotmarchy's bar-widget popout
-// extends, which is where `open()`/`close()`/`toggle()`, the `setting(key,
-// default)` accessor, and the IPC/summon plumbing all come from — nothing
-// here reimplements them. Unlike Spotmarchy's popout, this panel has no
-// invoking bar widget, so it never reads `bar` (which Spotmarchy only reads
-// defensively as `bar ? ... : fallback` anyway) — theming instead comes
-// straight from the qs.Commons singletons (`Color`, `Style`) documented for
-// any shell QML, not just bar widgets.
-//
-// Song data and album-art colour extraction reuse Spotmarchy's Model.js
-// unchanged (same MPRIS matching + art-probe pipeline), the same reuse
-// pattern already used for the vinyl-player overlay.
-Panel {
+// VinylPod popout. The bar widget hosts this component and KeyboardPanel
+// provides the actual anchored popup window. This follows the same
+// anchorItem/owner/bar pattern used by Omarchy bar-widget panels.
+Item {
   id: root
 
-  moduleName: "maiosx.vinylpod"
-  ipcTarget: "maiosx.vinylpod"
-  // Base only wires open/close/toggle; this adds transport calls on the
-  // same IPC target, so it owns the whole handler — same call Spotmarchy
-  // makes for the same reason.
-  manageIpc: false
+  property var anchorItem: null
+  property var hostWidget: null
+  property var bar: null
+  readonly property var barIdentity: hostWidget || root
+  property bool opened: false
+  readonly property bool popoutSwitchClosing: false
+  readonly property bool showWhenClosed: false
 
-  // ---------------------------------------------------------------- settings
-  readonly property string corner: String(setting("corner", "bottom-right"))
-  readonly property int margin: Style.space(Number(setting("margin", 24)))
-  readonly property bool showWhenClosed: setting("showWhenClosed", false) === true
+  function open() { root.opened = true }
+  function close() { root.opened = false }
+  function toggle() { root.opened = !root.opened }
+  function closeForPopoutSwitch() { root.close() }
 
-  readonly property bool anchorTop: corner === "top-left" || corner === "top-right"
-  readonly property bool anchorLeft: corner === "top-left" || corner === "bottom-left"
-
-  // NOTE: I don't have Panel's own source, only Spotmarchy's usage of it as
-  // a bar-widget popout (which anchors relative to the invoking widget, not
-  // a screen corner). Whether Panel exposes its own corner/margin anchoring
-  // for a standalone summon, or expects the surrounding PanelWindow-style
-  // anchors/margins grouped properties instead, isn't in the template I
-  // was given — the two blocks below (`anchors`/`margins`) are Quickshell's
-  // own PanelWindow convention and may need adjusting to whatever Panel
-  // actually forwards. Check qs/Ui/Panel.qml in your Omarchy checkout
-  // (docs point at shell/services/PluginRegistry.qml for the full schema)
-  // before shipping.
-  anchors {
-    top: anchorTop
-    bottom: !anchorTop
-    left: anchorLeft
-    right: !anchorLeft
-  }
-  margins {
-    top: margin
-    bottom: margin
-    left: margin
-    right: margin
-  }
-
-  implicitWidth: Style.space(260)
-  implicitHeight: Style.space(470)
-
-  // ------------------------------------------------------------------ player
   readonly property var players: Mpris.players ? Mpris.players.values : []
   readonly property var player: Model.findSpotify(players)
   readonly property bool live: player !== null && player !== undefined
   readonly property bool playing: live && player.isPlaying === true
-
   readonly property string trackTitle: live ? String(player.trackTitle || "") : ""
   readonly property string trackArtist: live ? String(player.trackArtist || "") : ""
   readonly property string artUrl: live ? String(player.trackArtUrl || "") : ""
-
   readonly property real trackLength: live && player.lengthSupported ? Math.max(0, player.length) : 0
   readonly property real trackPosition: {
     if (!live || !player.positionSupported) return 0
@@ -154,8 +111,17 @@ Panel {
   }
 
   // ======================================================================= UI
-  Rectangle {
-    id: body
+  KeyboardPanel {
+    id: panel
+    anchorItem: root.anchorItem
+    owner: root.barIdentity
+    bar: root.bar
+    open: root.opened
+    centerOnBar: false
+    contentWidth: Style.space(260)
+    contentHeight: Style.space(470)
+
+    Rectangle {
     anchors.fill: parent
     radius: Style.cornerRadius
     color: Color.popups.background
@@ -398,6 +364,6 @@ Panel {
         }
       }
     }
+    }
   }
-
 }
