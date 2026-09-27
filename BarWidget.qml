@@ -55,25 +55,6 @@ BarWidget {
     }
   }
 
-  IpcHandler {
-    target: "maiosx.vinylpod"
-
-    function open(): void { root.open() }
-    function close(): void { root.close() }
-    function show(): void { root.open() }
-    function hide(): void { root.close() }
-    function toggle(): void { root.toggle() }
-    function playPause(): string {
-      return panelLoader.item && panelLoader.item.playPause() ? "ok" : "unhandled"
-    }
-    function next(): string {
-      return panelLoader.item && panelLoader.item.skipNext() ? "ok" : "unhandled"
-    }
-    function previous(): string {
-      return panelLoader.item && panelLoader.item.skipPrevious() ? "ok" : "unhandled"
-    }
-  }
-
   WidgetButton {
     id: button
     anchors.fill: parent
