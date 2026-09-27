@@ -33,12 +33,74 @@ Item {
   readonly property string trackArtist: live ? String(player.trackArtist || "") : ""
   readonly property string artUrl: live ? String(player.trackArtUrl || "") : ""
   readonly property real trackLength: live && player.lengthSupported ? Math.max(0, player.length) : 0
-  readonly property real trackPosition: {
-    if (!live || !player.positionSupported) return 0
-    var pos = Math.max(0, player.position)
-    return trackLength > 0 ? Math.min(pos, trackLength) : pos
+  // MPRIS position is not guaranteed to emit a signal every frame. Keep a
+  // local playback clock between MPRIS position updates so the progress bar
+  // follows playback smoothly. The raw MPRIS position is still sampled often
+  // enough to catch seeks, pauses, track changes, and player-side corrections.
+  property real playbackPosition: 0
+  property real positionAnchor: 0
+  property double positionAnchorMs: 0
+  property real lastPlayerPosition: 0
+  property string positionTrackKey: ""
+  readonly property real trackPosition: trackLength > 0
+    ? Math.max(0, Math.min(trackLength, playbackPosition))
+    : Math.max(0, playbackPosition)
+  readonly property real progress: trackLength > 0
+    ? Math.max(0, Math.min(1, trackPosition / trackLength))
+    : 0
+
+  function playerTrackKey() {
+    if (!live) return ""
+    return String(player.trackId || player.trackTitle || "") + "|" + String(player.length || 0)
   }
-  readonly property real progress: trackLength > 0 ? Math.max(0, Math.min(1, trackPosition / trackLength)) : 0
+
+  function syncPlaybackPosition(force) {
+    if (!live || !player.positionSupported) {
+      playbackPosition = 0
+      positionAnchor = 0
+      positionAnchorMs = 0
+      positionTrackKey = ""
+      return
+    }
+
+    var raw = Math.max(0, Number(player.position) || 0)
+    var key = playerTrackKey()
+    var now = Date.now()
+    var trackChanged = key !== positionTrackKey
+    var expected = positionAnchor
+    if (playing && positionAnchorMs > 0)
+      expected += Math.max(0, (now - positionAnchorMs) / 1000)
+
+    // MPRIS position can lag behind our local clock. Treat a sizeable
+    // difference as a seek/player correction; otherwise keep the smooth clock.
+    var seeked = !playing || force || trackChanged || positionAnchorMs === 0
+      || Math.abs(raw - expected) > 1.0
+
+    if (seeked) {
+      positionAnchor = raw
+      positionAnchorMs = now
+      playbackPosition = raw
+    } else {
+      playbackPosition = expected
+    }
+
+    lastPlayerPosition = raw
+    positionTrackKey = key
+  }
+
+  Timer {
+    id: playbackClock
+    interval: 100
+    repeat: true
+    running: root.live
+    triggeredOnStart: true
+    onTriggered: root.syncPlaybackPosition(false)
+  }
+
+  onPlayingChanged: syncPlaybackPosition(true)
+  onTrackTitleChanged: syncPlaybackPosition(true)
+  onTrackLengthChanged: syncPlaybackPosition(true)
+  onLiveChanged: syncPlaybackPosition(true)
 
   // ---------------------------------------------------- album-art probe
   // Unchanged from Spotmarchy's Panel.qml: Qt can display the cover but not
