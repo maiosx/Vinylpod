@@ -38,23 +38,6 @@ taken by a default binding — if so, either pick another combo or
 `hl.unbind("SUPER + M")` immediately above the `o.bind(...)` line to
 override it. The file reloads live on save, no restart needed.
 
-### Getting this repo onto GitHub
-
-The `vinylpod/` folder is already a git repo with one commit:
-
-```bash
-cd vinylpod
-gh repo create maiosx/vinylpod --public --source=. --remote=origin --push
-```
-
-No `gh` CLI? Create an empty `vinylpod` repo under your account first (skip
-the README/license — this folder already has both), then:
-
-```bash
-git remote add origin git@github.com:maiosx/vinylpod.git
-git push -u origin main
-```
-
 ## Files
 - `manifest.json` — kind `panel` (Quattro's kind for a persistent/summoned
   floating window, e.g. an OSD — not `overlay`, which is fullscreen), id
