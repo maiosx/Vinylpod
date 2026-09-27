@@ -1,89 +1,56 @@
 # VinylPod
 
-A floating now-playing panel for Omarchy (Quattro shell / Quickshell). The
-click wheel is a turntable: it spins for real while a track plays, the album
-art sits on the label, and prev/play-pause/next fade in over the record
-itself on hover.
+A now-playing panel for Omarchy (Quattro shell / Quickshell). The letter **V**
+on the bar opens it. The click wheel is a turntable: it spins while a track
+plays, the album art sits on the label, and prev/play-pause/next fade in over
+the record on hover.
 
 ## Install
 
 ```bash
-omarchy plugin add https://github.com/maiosx/vinylpod.git
-```
-
-This clones the repo into `~/.config/omarchy/plugins/maiosx.vinylpod/` and
-lands it **disabled** so you can review the code first. Enable it with:
-
-```bash
+omarchy plugin add https://github.com/maiosx/Vinylpod.git
 omarchy plugin enable maiosx.vinylpod
-```
-
-(or **Setup › Plugins** in the GUI). Update later with
-`omarchy plugin update maiosx.vinylpod`, remove with
-`omarchy plugin remove maiosx.vinylpod`.
-
-### Bar widget
-
-The plugin also ships a bar chip: the letter **V**. Click it to toggle the
-panel. After enabling the plugin, place it on the bar if it isn’t already
-there:
-
-```bash
 omarchy bar move maiosx.vinylpod --section right
 ```
 
-(or drag it in **Setup › Bar**).
+(or **Setup › Plugins**, then drag **V** onto the bar).
+
+### Why V used to do nothing
+
+The first bar chip shelled out to `omarchy-shell toggle` and the panel bound
+`visible` to “Spotify is already playing”. With no player, toggle succeeded
+and still painted nothing. The V chip now **loads `VinylPod.qml` itself**
+(the same `Loader` + `KeyboardPanel` contract as clock/weather) and always
+shows the panel when you click — “Nothing playing” if Spotify isn’t live.
+
+| Click | Action |
+| --- | --- |
+| Left on **V** | Open / close the panel |
+| Right on **V** | Play / pause |
+| Middle on **V** | Next track |
+| Hover the wheel | Prev / play-pause / next |
 
 ### Keybinding
 
-Add a shortcut to toggle the panel visible/hidden. In
-`~/.config/hypr/bindings.lua`:
+In `~/.config/hypr/bindings.lua`:
 
 ```lua
-o.bind("SUPER + M", "VinylPod", "omarchy-shell shell toggle maiosx.vinylpod '{}'")
+o.bind("SUPER + M", "VinylPod", "omarchy-shell maiosx.vinylpod toggle")
 ```
 
-Same `toggle <id> <payloadJson>` IPC call the stock config uses for the
-Omarchy menu (`omarchy-shell shell toggle omarchy.menu '{"menu":"root"}'`).
-Check `omarchy menu keybindings --print` first in case Super+M is already
-taken by a default binding — if so, either pick another combo or
-`hl.unbind("SUPER + M")` immediately above the `o.bind(...)` line to
-override it. The file reloads live on save, no restart needed.
+Same IPC target as the bar widget (`open` / `close` / `toggle` / `playPause` /
+`next` / `previous`). Check `omarchy menu keybindings --print` first in case
+Super+M is taken — `hl.unbind("SUPER + M")` above the bind to override.
 
 ## Files
-- `manifest.json` — kinds `panel` + `bar-widget`, id `maiosx.vinylpod`,
-  entry points `VinylPod.qml` (panel) and `BarWidget.qml` (bar letter V)
-- `VinylPod.qml` — extends `Panel` from `qs.Ui` (the same base class
-  Spotmarchy's own popout extends), for `open()`/`close()`/`toggle()`, the
-  `setting(key, default)` accessor, and IPC. Theming reads from the
-  `qs.Commons` `Color`/`Style` singletons rather than hardcoded hex, so it
-  follows whatever theme is active.
-- `BarWidget.qml` — bar chip showing the letter **V**; left-click runs the
-  same `shell toggle maiosx.vinylpod` IPC as the keybinding.
-- `Model.js` — copied unchanged from `spotmarchy-main`: MPRIS matching
-  (`findSpotify`), time formatting, and the album-art probe pipeline
-  (shells out to ImageMagick + curl). Nothing in this file was modified.
 
-## What's live vs. static
-Title, artist, art, progress, and play state all read from
-`Quickshell.Services.Mpris` — the same properties Spotmarchy's `Panel.qml`
-reads (`trackTitle`, `trackArtist`, `trackArtUrl`, `position`/`length`,
-`isPlaying`). No polling, no placeholder data. If no Spotify MPRIS player is
-found, `live` is false and the panel shows "Nothing playing" (or hides
-entirely, depending on the `showWhenClosed` setting).
+- `manifest.json` — kind `bar-widget`, id `maiosx.vinylpod`
+- `BarWidget.qml` — letter **V**; loads the panel; owns IPC
+- `VinylPod.qml` — `Panel` + `KeyboardPanel` popout (MPRIS + click wheel)
+- `Model.js` — Spotmarchy MPRIS matching + art-probe pipeline (unchanged)
 
-## One thing I couldn't verify
-Corner/margin anchoring for a **standalone** panel summon (no invoking bar
-widget) isn't shown anywhere in the Spotmarchy template — it only shows
-`Panel` anchoring *relative to a bar widget's own slot*. The `anchors` /
-`margins` blocks in `VinylPod.qml` use Quickshell's own `PanelWindow`
-convention as a best guess for how `Panel` forwards screen-corner placement;
-confirm against `qs/Ui/Panel.qml` in your Omarchy checkout (the shell docs
-point at `shell/services/PluginRegistry.qml` for the authoritative schema)
-before relying on it.
+## Live data
 
-## Not carried over from Spotmarchy
-Spotmarchy's full bar-widget chrome (marquee label, scroll-to-skip,
-shuffle/repeat/volume row) isn't in here. VinylPod is a floating panel with a
-minimal bar activator (the letter **V**). Only the MPRIS/model plumbing and
-now-playing data were reused from Spotmarchy.
+Title, artist, art, progress, and play state read from
+`Quickshell.Services.Mpris`. No polling. If no Spotify player is found the
+panel still opens and shows “Nothing playing”.
