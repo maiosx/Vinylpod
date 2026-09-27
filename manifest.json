@@ -7,12 +7,12 @@
   "license": "MIT",
   "description": "A floating click-wheel/turntable now-playing widget for Spotify — the wheel spins as a record with the album art as its label, and transport controls fade in over it on hover.",
   "kinds": [
-    "overlay"
+    "panel"
   ],
   "entryPoints": {
-    "overlay": "VinylPod.qml"
+    "panel": "VinylPod.qml"
   },
-  "overlay": {
+  "panel": {
     "displayName": "VinylPod",
     "description": "A small floating iPod-style now-playing panel. The click wheel is a spinning record synced to playback; hover it to reveal prev/play-pause/next.",
     "category": "Media",

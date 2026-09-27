@@ -1,45 +1,77 @@
 # VinylPod
 
-A floating now-playing panel for Omarchy/Quickshell. The click wheel is a
-turntable: it spins for real while a track plays, the album art sits on the
-label, and prev/play-pause/next fade in over the record itself on hover.
+A floating now-playing panel for Omarchy (Quattro shell / Quickshell). The
+click wheel is a turntable: it spins for real while a track plays, the album
+art sits on the label, and prev/play-pause/next fade in over the record
+itself on hover.
+
+## Install
+
+```bash
+omarchy plugin add https://github.com/maiosx/vinylpod.git
+```
+
+This clones the repo into `~/.config/omarchy/plugins/maiosx.vinylpod/` and
+lands it **disabled** so you can review the code first. Enable it with:
+
+```bash
+omarchy plugin enable maiosx.vinylpod
+```
+
+(or **Setup › Plugins** in the GUI). Update later with
+`omarchy plugin update maiosx.vinylpod`, remove with
+`omarchy plugin remove maiosx.vinylpod`.
+
+### Getting this repo onto GitHub
+
+The `vinylpod/` folder is already a git repo with one commit:
+
+```bash
+cd vinylpod
+gh repo create maiosx/vinylpod --public --source=. --remote=origin --push
+```
+
+No `gh` CLI? Create an empty `vinylpod` repo under your account first (skip
+the README/license — this folder already has both), then:
+
+```bash
+git remote add origin git@github.com:maiosx/vinylpod.git
+git push -u origin main
+```
 
 ## Files
-- `manifest.json` — plugin manifest (id `maiosx.vinylpod`, kind `overlay`)
-- `VinylPod.qml` — the panel: layout, MPRIS binding, transport, hover controls
+- `manifest.json` — kind `panel` (Quattro's kind for a persistent/summoned
+  floating window, e.g. an OSD — not `overlay`, which is fullscreen), id
+  `maiosx.vinylpod`, entry point `VinylPod.qml`
+- `VinylPod.qml` — extends `Panel` from `qs.Ui` (the same base class
+  Spotmarchy's own popout extends), for `open()`/`close()`/`toggle()`, the
+  `setting(key, default)` accessor, and IPC. Theming reads from the
+  `qs.Commons` `Color`/`Style` singletons rather than hardcoded hex, so it
+  follows whatever theme is active.
 - `Model.js` — copied unchanged from `spotmarchy-main`: MPRIS matching
   (`findSpotify`), time formatting, and the album-art probe pipeline
-  (`artProbeTarget` / `artProbeScript` / `parseArtProbe`, which shells out to
-  ImageMagick + curl). Nothing in this file was modified.
+  (shells out to ImageMagick + curl). Nothing in this file was modified.
 
 ## What's live vs. static
-Everything under "player" in `VinylPod.qml` — title, artist, art, progress,
-play state — reads from `Quickshell.Services.Mpris`, exactly the same
-properties Spotmarchy's `Panel.qml` reads (`trackTitle`, `trackArtist`,
-`trackArtUrl`, `position`/`length`, `isPlaying`). There's no polling or
-placeholder data; if no Spotify MPRIS player is found, `live` is false and
-the panel shows "Nothing playing" (or hides entirely, depending on
-`showWhenClosed`).
+Title, artist, art, progress, and play state all read from
+`Quickshell.Services.Mpris` — the same properties Spotmarchy's `Panel.qml`
+reads (`trackTitle`, `trackArtist`, `trackArtUrl`, `position`/`length`,
+`isPlaying`). No polling, no placeholder data. If no Spotify MPRIS player is
+found, `live` is false and the panel shows "Nothing playing" (or hides
+entirely, depending on the `showWhenClosed` setting).
 
-## Two things I did not guess at
-1. **Settings binding.** The manifest declares `corner`, `margin`, and
-   `showWhenClosed` as user-configurable, but the uploaded template only
-   shows how a *bar widget* reads settings (`setting("key", default)`,
-   defined on the `Panel` base component from `qs.Ui`, which isn't part of
-   this template). Rather than invent that call and risk it being wrong,
-   `VinylPod.qml` declares those three as plain properties hardcoded to the
-   manifest's defaults (bottom-right, 24px margin, hidden when idle). Swap
-   in the real settings call once you point me to (or paste) the base
-   overlay/panel component this plugin should extend.
-2. **Rounded album art.** Spotmarchy's panel uses `QtQuick.Effects` +
-   `MultiEffect` masking for its art thumbnail. I used a simpler
-   `Rectangle { radius; clip: true }` around the `Image` instead — same
-   visual result for a plain crop, fewer moving parts to get wrong. If you
-   want the exact masking technique back (e.g. for a non-circular shape
-   later), it's a straightforward swap.
+## One thing I couldn't verify
+Corner/margin anchoring for a **standalone** panel summon (no invoking bar
+widget) isn't shown anywhere in the Spotmarchy template — it only shows
+`Panel` anchoring *relative to a bar widget's own slot*. The `anchors` /
+`margins` blocks in `VinylPod.qml` use Quickshell's own `PanelWindow`
+convention as a best guess for how `Panel` forwards screen-corner placement;
+confirm against `qs/Ui/Panel.qml` in your Omarchy checkout (the shell docs
+point at `shell/services/PluginRegistry.qml` for the authoritative schema)
+before relying on it.
 
 ## Not carried over from Spotmarchy
-`Panel.qml`'s bar-widget chrome (the bar glyph, marquee label, scroll-to-skip,
-shuffle/repeat/volume row, IPC handler) isn't in here — this is a standalone
-floating panel, not a bar entry, so only the MPRIS/model plumbing and the
-now-playing data were reused, per the brief.
+Spotmarchy's bar-widget chrome (the bar glyph, marquee label, scroll-to-skip,
+shuffle/repeat/volume row) isn't in here — this is a standalone floating
+panel, not a bar entry, so only the MPRIS/model plumbing and now-playing
+data were reused.
