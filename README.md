@@ -22,6 +22,18 @@ omarchy plugin enable maiosx.vinylpod
 `omarchy plugin update maiosx.vinylpod`, remove with
 `omarchy plugin remove maiosx.vinylpod`.
 
+### Bar widget
+
+The plugin also ships a bar chip: the letter **V**. Click it to toggle the
+panel. After enabling the plugin, place it on the bar if it isn’t already
+there:
+
+```bash
+omarchy bar move maiosx.vinylpod --section right
+```
+
+(or drag it in **Setup › Bar**).
+
 ### Keybinding
 
 Add a shortcut to toggle the panel visible/hidden. In
@@ -39,14 +51,15 @@ taken by a default binding — if so, either pick another combo or
 override it. The file reloads live on save, no restart needed.
 
 ## Files
-- `manifest.json` — kind `panel` (Quattro's kind for a persistent/summoned
-  floating window, e.g. an OSD — not `overlay`, which is fullscreen), id
-  `maiosx.vinylpod`, entry point `VinylPod.qml`
+- `manifest.json` — kinds `panel` + `bar-widget`, id `maiosx.vinylpod`,
+  entry points `VinylPod.qml` (panel) and `BarWidget.qml` (bar letter V)
 - `VinylPod.qml` — extends `Panel` from `qs.Ui` (the same base class
   Spotmarchy's own popout extends), for `open()`/`close()`/`toggle()`, the
   `setting(key, default)` accessor, and IPC. Theming reads from the
   `qs.Commons` `Color`/`Style` singletons rather than hardcoded hex, so it
   follows whatever theme is active.
+- `BarWidget.qml` — bar chip showing the letter **V**; left-click runs the
+  same `shell toggle maiosx.vinylpod` IPC as the keybinding.
 - `Model.js` — copied unchanged from `spotmarchy-main`: MPRIS matching
   (`findSpotify`), time formatting, and the album-art probe pipeline
   (shells out to ImageMagick + curl). Nothing in this file was modified.
@@ -70,7 +83,7 @@ point at `shell/services/PluginRegistry.qml` for the authoritative schema)
 before relying on it.
 
 ## Not carried over from Spotmarchy
-Spotmarchy's bar-widget chrome (the bar glyph, marquee label, scroll-to-skip,
-shuffle/repeat/volume row) isn't in here — this is a standalone floating
-panel, not a bar entry, so only the MPRIS/model plumbing and now-playing
-data were reused.
+Spotmarchy's full bar-widget chrome (marquee label, scroll-to-skip,
+shuffle/repeat/volume row) isn't in here. VinylPod is a floating panel with a
+minimal bar activator (the letter **V**). Only the MPRIS/model plumbing and
+now-playing data were reused from Spotmarchy.
