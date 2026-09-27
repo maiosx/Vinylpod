@@ -83,9 +83,6 @@ Panel {
   }
   readonly property real progress: trackLength > 0 ? Math.max(0, Math.min(1, trackPosition / trackLength)) : 0
 
-  readonly property bool shown: live || showWhenClosed
-  visible: shown
-
   // ---------------------------------------------------- album-art probe
   // Unchanged from Spotmarchy's Panel.qml: Qt can display the cover but not
   // tell us its colour, so an ImageMagick probe (via Model.js) reads a
@@ -403,14 +400,4 @@ Panel {
     }
   }
 
-  IpcHandler {
-    target: "maiosx.vinylpod"
-
-    function open(): void { root.open() }
-    function close(): void { root.close() }
-    function toggle(): void { root.toggle() }
-    function playPause(): string { return root.playPause() ? "ok" : "unhandled" }
-    function next(): string { return root.skipNext() ? "ok" : "unhandled" }
-    function previous(): string { return root.skipPrevious() ? "ok" : "unhandled" }
-  }
 }

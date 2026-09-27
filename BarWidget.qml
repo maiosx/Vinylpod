@@ -49,7 +49,6 @@ BarWidget {
     id: panelLoader
     active: true
     source: Qt.resolvedUrl("VinylPod.qml")
-    visible: false
     onLoaded: {
       root.injectPanel()
       Qt.callLater(root.injectPanel)
