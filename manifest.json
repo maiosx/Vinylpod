@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "maiosx.vinylpod",
+  "name": "VinylPod",
+  "version": "0.1.0",
+  "author": "maiosx",
+  "license": "MIT",
+  "description": "A floating click-wheel/turntable now-playing widget for Spotify — the wheel spins as a record with the album art as its label, and transport controls fade in over it on hover.",
+  "kinds": [
+    "overlay"
+  ],
+  "entryPoints": {
+    "overlay": "VinylPod.qml"
+  },
+  "overlay": {
+    "displayName": "VinylPod",
+    "description": "A small floating iPod-style now-playing panel. The click wheel is a spinning record synced to playback; hover it to reveal prev/play-pause/next.",
+    "category": "Media",
+    "aliases": [
+      "vinylpod",
+      "vinyl-ipod",
+      "spotify-wheel"
+    ],
+    "allowMultiple": false,
+    "defaults": {
+      "corner": "bottom-right",
+      "margin": 24,
+      "showWhenClosed": false
+    },
+    "schema": [
+      {
+        "key": "corner",
+        "type": "enum",
+        "label": "Screen corner",
+        "options": [
+          "top-left",
+          "top-right",
+          "bottom-left",
+          "bottom-right"
+        ],
+        "defaultValue": "bottom-right"
+      },
+      {
+        "key": "margin",
+        "type": "integer",
+        "label": "Margin from screen edge (px)",
+        "min": 0,
+        "max": 200,
+        "step": 4,
+        "defaultValue": 24
+      },
+      {
+        "key": "showWhenClosed",
+        "type": "boolean",
+        "label": "Keep the panel on screen when Spotify isn't running",
+        "defaultValue": false,
+        "description": "Off hides the whole panel until a track is live."
+      }
+    ]
+  }
+}
