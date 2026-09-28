@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "maiosx.vinylpod",
   "name": "VinylPod",
-  "version": "0.1.7",
+  "version": "0.1.9",
   "author": "maiosx",
   "license": "MIT",
   "description": "A click-wheel/turntable now-playing panel for Spotify. The letter V on the bar opens it; the wheel spins as a record with the album art as its label.",

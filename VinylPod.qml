@@ -105,7 +105,7 @@ Item {
   onLiveChanged: syncPlaybackPosition(true)
 
   // ------------------------------------------------- look & motion knobs
-  property real panelOpacity: 0.6      // translucent panel background
+  property real panelOpacity: 1.0      // translucent panel background
   property real screenOpacity: 0.85    // black iPod screen (kept close to black)
   property real wheelDrop: 30          // extra gap between screen and wheel
   property real rpm: 33.333
@@ -396,6 +396,15 @@ Item {
               }
             }
           }
+        }
+
+        // seek bar + times, pinned to the bottom of the black screen
+        Column {
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.bottom: parent.bottom
+          anchors.margins: Style.spacing.rowPaddingX
+          spacing: Style.spacing.labelGap
 
           Rectangle {
             width: parent.width
@@ -413,18 +422,21 @@ Item {
             }
           }
 
-          Row {
+          Item {
             width: parent.width
+            height: elapsedText.implicitHeight
 
             Text {
+              id: elapsedText
+              anchors.left: parent.left
               text: Model.formatTime(root.trackPosition)
               color: "#ffffff"
               opacity: 0.6
               font.family: Style.font.family
               font.pixelSize: Style.font.caption
             }
-            Item { width: parent.width - Style.space(90); height: 1 }
             Text {
+              anchors.right: parent.right
               text: Model.formatTime(root.trackLength)
               color: "#ffffff"
               opacity: 0.6
