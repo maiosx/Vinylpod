@@ -328,7 +328,7 @@ Item {
     Rectangle {
     anchors.fill: parent
     radius: Style.cornerRadius
-    color: Qt.alpha(Color.popups.background, root.panelOpacity)
+    color: Qt.rgba(1, 1, 1, root.panelOpacity)
 
     Column {
       anchors.fill: parent
@@ -359,12 +359,17 @@ Item {
             width: parent.width
             spacing: Style.spacing.controlGap
 
-            CircleArt {
+            Rectangle {
               width: Style.space(48)
               height: Style.space(48)
-              source: root.artSourceUrl
-              fill: root.artDominant !== "" ? root.artDominant : Color.accent
-              inset: Style.space(3)
+              color: root.artDominant !== "" ? root.artDominant : Color.accent
+
+              Image {
+                anchors.fill: parent
+                visible: root.artSourceUrl !== ""
+                source: root.artSourceUrl
+                fillMode: Image.PreserveAspectCrop
+              }
             }
 
             Column {
