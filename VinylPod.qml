@@ -1,4 +1,6 @@
 import QtQuick
+import QtQuick.Effects
+import QtQuick.Shapes
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Mpris
@@ -102,6 +104,43 @@ Item {
   onTrackLengthChanged: syncPlaybackPosition(true)
   onLiveChanged: syncPlaybackPosition(true)
 
+  // ------------------------------------------------- look & motion knobs
+  property real panelOpacity: 0.6      // translucent panel background
+  property real screenOpacity: 0.85    // black iPod screen (kept close to black)
+  property real wheelDrop: 30          // extra gap between screen and wheel
+  property real rpm: 33.333
+
+  // Motion model ported from omarchy-vinyl (ui.rs tick): a heavy platter that
+  // spins up fast and coasts down slowly, and a tone arm that only drops once
+  // the platter is up to speed, rides inward with progress, and lifts on pause.
+  property real vinylAngle: 0          // degrees
+  property real angVel: 0              // degrees / second
+  readonly property real restAngle: 77 // arm parked, needle off the record
+  readonly property real needleAngle: 135 - (43 - 18 * progress)
+  readonly property bool platterUp: playing && angVel > rpm * 3
+  readonly property real armTarget: platterUp ? needleAngle : restAngle
+  property real armAngle: 77
+  // 0 = needle on the groove, 1 = fully lifted (drives the shadow offset)
+  readonly property real armLift: Math.max(0, Math.min(1, Math.abs(armAngle - needleAngle) / 8))
+
+  function stepMotion(dt) {
+    dt = Math.min(dt, 0.1)
+    var spinTarget = playing ? rpm * 6 : 0
+    var k = spinTarget > angVel ? 3.0 : 1.4
+    angVel += (spinTarget - angVel) * (1 - Math.exp(-k * dt))
+    if (spinTarget === 0 && Math.abs(angVel) < 0.5) angVel = 0
+    vinylAngle = (vinylAngle + angVel * dt) % 360
+
+    armAngle += (armTarget - armAngle) * (1 - Math.exp(-4.5 * dt))
+    if (Math.abs(armTarget - armAngle) < 0.02) armAngle = armTarget
+  }
+
+  FrameAnimation {
+    running: root.opened && (root.playing || root.angVel !== 0
+                             || Math.abs(root.armTarget - root.armAngle) > 0.02)
+    onTriggered: root.stepMotion(frameTime)
+  }
+
   // ---------------------------------------------------- album-art probe
   // Unchanged from Spotmarchy's Panel.qml: Qt can display the cover but not
   // tell us its colour, so an ImageMagick probe (via Model.js) reads a
@@ -172,6 +211,109 @@ Item {
     return true
   }
 
+  // Circular cover art. `clip: true` never follows a Rectangle's radius in
+  // QML, so the image is masked through a circle instead.
+  component CircleArt: Item {
+    id: circ
+    property string source: ""
+    property color fill: Color.accent
+    property real inset: 0
+
+    Rectangle {
+      anchors.fill: parent
+      radius: width / 2
+      color: circ.fill
+    }
+
+    Image {
+      id: artImg
+      anchors.fill: parent
+      anchors.margins: circ.inset
+      visible: circ.source !== ""
+      source: circ.source
+      fillMode: Image.PreserveAspectCrop
+      layer.enabled: true
+      layer.effect: MultiEffect {
+        maskEnabled: true
+        maskSource: artMask
+      }
+    }
+
+    Item {
+      id: artMask
+      anchors.fill: artImg
+      visible: false
+      layer.enabled: true
+      Rectangle { anchors.fill: parent; radius: width / 2 }
+    }
+  }
+
+  // Clips its children to a circle (used for the arm's shadow, which only
+  // falls on the record).
+  component CircleClip: Item {
+    default property alias content: holder.data
+    layer.enabled: true
+    layer.effect: MultiEffect {
+      maskEnabled: true
+      maskSource: clipMask
+    }
+    Item { id: holder; anchors.fill: parent }
+    Item {
+      id: clipMask
+      anchors.fill: parent
+      visible: false
+      layer.enabled: true
+      Rectangle { anchors.fill: parent; radius: width / 2 }
+    }
+  }
+
+  // The tone arm along +x from its origin: counterweight, tube, headshell,
+  // stylus. In shadowMode every part is one flat translucent ink instead.
+  component ArmBody: Item {
+    id: ab
+    property real u: 1
+    property real len: 105
+    property bool shadowMode: false
+    property color ink: "#26000000"
+    width: 0
+    height: 0
+
+    Rectangle {
+      x: -18 * ab.u; y: -5 * ab.u
+      width: 12 * ab.u; height: 10 * ab.u; radius: 2 * ab.u
+      color: ab.shadowMode ? ab.ink : "#5a5a5a"
+    }
+    Rectangle {
+      x: -8 * ab.u; y: -1.5 * ab.u
+      width: ab.len - 6 * ab.u; height: 3 * ab.u; radius: height / 2
+      gradient: Gradient {
+        GradientStop { position: 0.0; color: ab.shadowMode ? ab.ink : "#e6e6e6" }
+        GradientStop { position: 1.0; color: ab.shadowMode ? ab.ink : "#9a9a9a" }
+      }
+    }
+    Rectangle {
+      x: ab.len - 14 * ab.u; y: -3.5 * ab.u
+      width: 14 * ab.u; height: 7 * ab.u; radius: 1.5 * ab.u
+      color: ab.shadowMode ? ab.ink : "#1c1c1c"
+      border.width: ab.shadowMode ? 0 : 1
+      border.color: "#555555"
+    }
+    Rectangle {
+      visible: !ab.shadowMode
+      x: ab.len - 1.5 * ab.u; y: -1.5 * ab.u
+      width: 3 * ab.u; height: width; radius: width / 2
+      color: "#e05a4f"
+    }
+    Rectangle {
+      visible: !ab.shadowMode
+      x: -5 * ab.u; y: -5 * ab.u
+      width: 10 * ab.u; height: width; radius: width / 2
+      color: "#b8b8b8"
+      border.width: 1
+      border.color: "#777777"
+    }
+  }
+
   // ======================================================================= UI
   KeyboardPanel {
     id: panel
@@ -186,9 +328,7 @@ Item {
     Rectangle {
     anchors.fill: parent
     radius: Style.cornerRadius
-    color: Color.popups.background
-    border.width: 1
-    border.color: Color.popups.border
+    color: Qt.alpha(Color.popups.background, root.panelOpacity)
 
     Column {
       anchors.fill: parent
@@ -199,8 +339,8 @@ Item {
       Rectangle {
         width: parent.width
         height: Style.space(140)
-        radius: Style.cornerRadius
-        color: Color.background
+        radius: Style.space(6)
+        color: Qt.rgba(0, 0, 0, root.screenOpacity)
 
         Column {
           anchors.fill: parent
@@ -209,7 +349,7 @@ Item {
 
           Text {
             text: root.live ? "VinylPod" : "No player"
-            color: Color.foreground
+            color: "#ffffff"
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
             opacity: 0.7
@@ -219,20 +359,12 @@ Item {
             width: parent.width
             spacing: Style.spacing.controlGap
 
-            Rectangle {
+            CircleArt {
               width: Style.space(48)
               height: Style.space(48)
-              radius: width / 2
-              color: root.artDominant !== "" ? root.artDominant : Color.accent
-              clip: true
-
-              Image {
-                anchors.fill: parent
-                anchors.margins: Style.space(3)
-                visible: root.artSourceUrl !== ""
-                source: root.artSourceUrl
-                fillMode: Image.PreserveAspectCrop
-              }
+              source: root.artSourceUrl
+              fill: root.artDominant !== "" ? root.artDominant : Color.accent
+              inset: Style.space(3)
             }
 
             Column {
@@ -242,7 +374,7 @@ Item {
               Text {
                 width: parent.width
                 text: root.trackTitle !== "" ? root.trackTitle : "Nothing playing"
-                color: Color.foreground
+                color: "#ffffff"
                 font.family: Style.font.family
                 font.pixelSize: Style.font.body
                 elide: Text.ElideRight
@@ -250,7 +382,7 @@ Item {
               Text {
                 width: parent.width
                 text: root.trackArtist
-                color: Color.foreground
+                color: "#ffffff"
                 opacity: 0.65
                 font.family: Style.font.family
                 font.pixelSize: Style.font.bodySmall
@@ -264,7 +396,7 @@ Item {
             width: parent.width
             height: Style.spaceReal(3)
             radius: height / 2
-            color: Qt.darker(Color.background, 1.4)
+            color: "#2b2b2b"
 
             Rectangle {
               width: parent.width * root.progress
@@ -281,7 +413,7 @@ Item {
 
             Text {
               text: Model.formatTime(root.trackPosition)
-              color: Color.foreground
+              color: "#ffffff"
               opacity: 0.6
               font.family: Style.font.family
               font.pixelSize: Style.font.caption
@@ -289,7 +421,7 @@ Item {
             Item { width: parent.width - Style.space(90); height: 1 }
             Text {
               text: Model.formatTime(root.trackLength)
-              color: Color.foreground
+              color: "#ffffff"
               opacity: 0.6
               font.family: Style.font.family
               font.pixelSize: Style.font.caption
@@ -297,6 +429,8 @@ Item {
           }
         }
       }
+
+      Item { width: 1; height: Style.space(root.wheelDrop) }
 
       // ------------------------------------------------------- click wheel
       Item {
@@ -315,11 +449,12 @@ Item {
           }
         }
 
-        // spinning record — rotation runs only while playing, and simply
-        // holds its last angle when paused/stopped.
+        // spinning record — angle comes from the platter model (root.stepMotion):
+        // quick spin-up, slow coast-down after pause.
         Item {
           id: vinyl
           anchors.fill: parent
+          rotation: root.vinylAngle
           anchors.margins: Style.space(10)
 
           Rectangle {
@@ -340,16 +475,6 @@ Item {
               border.color: "#1f1f1f"
             }
           }
-
-          RotationAnimation {
-            target: vinyl
-            property: "rotation"
-            from: 0
-            to: 360
-            duration: 4800
-            loops: Animation.Infinite
-            running: root.playing
-          }
         }
 
         // label — album art, spins with the record
@@ -359,19 +484,11 @@ Item {
           anchors.centerIn: parent
           rotation: vinyl.rotation
 
-          Rectangle {
+          CircleArt {
             anchors.fill: parent
-            radius: width / 2
-            color: root.artDominant !== "" ? root.artDominant : Color.accent
-            clip: true
-
-            Image {
-              anchors.fill: parent
-              anchors.margins: Style.space(4)
-              visible: root.artSourceUrl !== ""
-              source: root.artSourceUrl
-              fillMode: Image.PreserveAspectCrop
-            }
+            source: root.artSourceUrl
+            fill: root.artDominant !== "" ? root.artDominant : Color.accent
+            inset: Style.space(4)
           }
 
           Rectangle {
@@ -380,6 +497,90 @@ Item {
             radius: width / 2
             color: "#0a0a0a"
             anchors.centerIn: parent
+          }
+        }
+
+        // specular sheen — stays put while the record turns under it, and the
+        // highlight axis wobbles once per revolution like a slightly warped
+        // pressing (ported from omarchy-vinyl's record.rs)
+        Shape {
+          id: sheen
+          anchors.fill: vinyl
+          layer.enabled: true
+          layer.samples: 4
+
+          ShapePath {
+            strokeWidth: -1
+            strokeColor: "transparent"
+            fillGradient: ConicalGradient {
+              centerX: sheen.width / 2
+              centerY: sheen.height / 2
+              angle: 42 + 7 * Math.sin(root.vinylAngle * Math.PI / 180)
+              GradientStop { position: 0.00; color: "#26ffffff" }
+              GradientStop { position: 0.11; color: "#00ffffff" }
+              GradientStop { position: 0.39; color: "#00ffffff" }
+              GradientStop { position: 0.50; color: "#17ffffff" }
+              GradientStop { position: 0.61; color: "#00ffffff" }
+              GradientStop { position: 0.89; color: "#00ffffff" }
+              GradientStop { position: 1.00; color: "#26ffffff" }
+            }
+            PathAngleArc {
+              centerX: sheen.width / 2
+              centerY: sheen.height / 2
+              radiusX: sheen.width / 2
+              radiusY: sheen.height / 2
+              startAngle: 0
+              sweepAngle: 360
+            }
+          }
+        }
+
+        // ---------------------------------------------------------- tonearm
+        // Geometry is in 200-unit wheel space (u). Pivot sits off the top-right
+        // of the record; arm length 105u. Angles come from the motion model.
+        Item {
+          id: tonearmRig
+          anchors.fill: parent
+          readonly property real u: wheelWrap.width / 200
+
+          // arm shadow: three overlapping copies stand in for a blur, pushed
+          // further out the higher the arm is lifted; only falls on the disc
+          CircleClip {
+            anchors.fill: parent
+            anchors.margins: 10 * tonearmRig.u
+
+            Repeater {
+              model: 3
+              ArmBody {
+                readonly property real t: 0.55 + 0.45 * index / 2
+                u: tonearmRig.u
+                len: 105 * tonearmRig.u
+                shadowMode: true
+                x: (168 + (1.5 + 2.5 * root.armLift) * t) * tonearmRig.u
+                y: (12 + (3.0 + 4.0 * root.armLift) * t) * tonearmRig.u
+                rotation: root.armAngle
+              }
+            }
+          }
+
+          // pivot base plate
+          Rectangle {
+            x: 178 * tonearmRig.u - width / 2
+            y: 22 * tonearmRig.u - height / 2
+            width: 24 * tonearmRig.u
+            height: width
+            radius: width / 2
+            color: "#2a2a2a"
+            border.width: 1
+            border.color: "#4a4a4a"
+          }
+
+          ArmBody {
+            u: tonearmRig.u
+            len: 105 * tonearmRig.u
+            x: 178 * tonearmRig.u
+            y: 22 * tonearmRig.u
+            rotation: root.armAngle
           }
         }
 
